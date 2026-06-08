@@ -6,7 +6,7 @@ import socketserver
 
 DB_NAME = "database.db"
 
-# 1. INITIALIZING STRUCTURAL PERSISTENT SQLITE3 LOCAL DATABASE SCHEMAS
+# 1. STRUCTURAL PERSISTENT SQLITE3 LOCAL DATABASE SCHEMAS
 def init_database():
     print("[DATABASE] Connecting to storage engine layer...")
     conn = sqlite3.connect(DB_NAME)
@@ -16,19 +16,20 @@ def init_database():
             id TEXT PRIMARY KEY, name TEXT NOT NULL,
             gov_count INTEGER NOT NULL, pvt_count INTEGER NOT NULL,
             distance_km REAL NOT NULL, base_cost INTEGER NOT NULL,
-            km_rate INTEGER NOT NULL, hospitals TEXT NOT NULL
+            km_rate INTEGER NOT NULL, hospitals TEXT NOT NULL,
+            lat REAL NOT NULL, lng REAL NOT NULL
         )
     """)
     cursor.execute("SELECT COUNT(*) FROM locations")
     if cursor.fetchone() == 0:
         print("[DATABASE] Seeding regional spatial index matrices...")
         mock_data = [
-            ("madhapur", "Madhapur Core Area", 4, 9, 6.8, 450, 35, "Medicover Hospitals, Madhapur | Image Hospitals"),
-            ("gachibowli", "Gachibowli Financial Hub", 3, 12, 9.4, 550, 40, "Continental Hospitals | AIG Hospitals"),
-            ("jubilee hills", "Jubilee Hills Checkpost", 6, 7, 3.2, 350, 30, "Apollo Hospitals | Indo-American Hospital"),
-            ("kondapur", "Kondapur Botanical Zone", 2, 8, 8.1, 500, 35, "KIMS Hospital | Ar时代 Healthcare")
+            ("madhapur", "Madhapur Area", 4, 9, 6.8, 450, 35, "Medicover Hospitals | Image Hospitals", 17.4483, 78.3915),
+            ("gachibowli", "Gachibowli Hub", 3, 12, 9.4, 550, 40, "Continental Hospitals | AIG Hospitals", 17.4401, 78.3489),
+            ("jubilee hills", "Jubilee Hills", 6, 7, 3.2, 350, 30, "Apollo Hospitals | Indo-American Hospital", 17.4279, 78.4116),
+            ("kondapur", "Kondapur Zone", 2, 8, 8.1, 500, 35, "KIMS Hospital | Medicover Kondapur", 17.4622, 78.3568)
         ]
-        cursor.executemany("INSERT INTO locations VALUES (?, ?, ?, ?, ?, ?, ?, ?)", mock_data)
+        cursor.executemany("INSERT INTO locations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", mock_data)
         conn.commit()
         print("[DATABASE] Seeding sequence safely completed.")
     conn.close()
@@ -40,6 +41,8 @@ html_content = """<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RescuNet MVP Prototype</title>
+    <!-- Leaflet.js Interactive Mapping CSS Engine Link -->
+    <link rel="stylesheet" href="https://cloudflare.com" />
     <style>
         body {
             background-color: #020617; color: #f1f5f9;
@@ -92,25 +95,14 @@ html_content = """<!DOCTYPE html>
         .timeline-step.active .timeline-sub { color: #94a3b8; }
         .map-wrapper { display: flex; flex-direction: column; height: 100%; }
         .map-header { background-color: #1e293b; border-bottom: 1px solid #334155; padding: 10px 16px; border-top-left-radius: 12px; border-top-right-radius: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; }
-        .map-viewport { background-color: #020617; height: 260px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; position: relative; overflow: hidden; border: 1px solid #1e293b; border-top: none; }
-        .map-grid { position: absolute; inset: 0; opacity: 0.05; background-image: linear-gradient(#94a3b8 1px, transparent 1px), linear-gradient(90deg, #94a3b8 1px, transparent 1px); background-size: 20px 20px; }
+        #map { height: 260px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; border: 1px solid #1e293b; border-top: none; z-index: 10; }
         .eta-badge { font-family: monospace; background-color: #020617; color: #f43f5e; padding: 4px 8px; border-radius: 6px; border: 1px solid #334155; font-weight: bold; }
-        .patient-node { position: absolute; top: 50%; left: 33.333%; transform: translate(-50%, -50%); text-align: center; z-index: 10; display: none; }
-        .patient-icon { background-color: #2563eb; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; font-size: 14px; box-shadow: 0 0 10px rgba(37,99,235,0.5); }
-        .ambulance-sprite { position: absolute; top: 25%; left: 85%; transform: translate(-50%, -50%); text-align: center; z-index: 20; display: none; transition: all 0.15s linear; }
-        .amb-icon-bg { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; font-size: 16px; }
-        .icon-rose { background-color: #e11d48; box-shadow: 0 0 15px rgba(225,29,72,0.4); }
-        .icon-amber { background-color: #d97706; box-shadow: 0 0 15px rgba(217,119,6,0.4); }
-        .node-label { font-size: 0.6rem; font-weight: bold; display: block; margin-top: 4px; background: rgba(2,6,23,0.8); padding: 2px 6px; border-radius: 4px; border: 1px solid #1e293b; white-space: nowrap; }
-        .label-blue { color: #93c5fd; }
-        .label-rose { color: #f43f5e; }
-        .label-amber { color: #fbbf24; }
-        .map-watermark { position: absolute; inset: 0; background: rgba(2,6,23,0.3); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #475569; font-family: monospace; letter-spacing: 0.05em; text-transform: uppercase; transition: opacity 0.3s; }
-        .display-none { display: none !important; }
         .terminal-panel { background-color: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; font-family: monospace; font-size: 0.75rem; height: 160px; display: flex; flex-direction: column; margin-top: 20px; }
         .terminal-header { color: #475569; border-bottom: 1px solid #1e293b; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; font-weight: bold; }
         .terminal-stream { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
         .log-time { color: #334155; margin-right: 6px; font-weight: bold; }
+        .custom-div-icon { background: none; border: none; }
+        .map-emoji { font-size: 24px; text-shadow: 0 0 4px rgba(0,0,0,0.6); }
     </style>
 </head>
 <body>
@@ -173,33 +165,44 @@ html_content = """<!DOCTYPE html>
             </div>
         </section>
         <section class="map-wrapper">
-            <div class="map-header"><span style="font-weight: bold; color: #94a3b8;">🛰️ SIMULATED VIEWPORT</span><span class="eta-badge" id="etaDisplay">ETA: STANDBY</span></div>
-            <div class="map-viewport">
-                <div class="map-grid"></div>
-                <svg style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;"><line id="routeLine" x1="33.333%" y1="50%" x2="85%" y2="25%" stroke="#f43f5e" stroke-width="2" stroke-dasharray="5" class="display-none" /></svg>
-                <div class="patient-node" id="patientUiNode"><div class="patient-icon">👤</div><span class="node-label label-blue" id="patientLabelText">Patient Node</span></div>
-                <div id="ambulanceSprite" class="ambulance-sprite"><div id="ambIconBg" class="amb-icon-bg icon-rose"><span id="ambIcon">🚒</span></div><span id="ambLabel" class="node-label label-rose">Gov 108</span></div>
-                <div id="idleWatermark" class="map-watermark">Awaiting Simulation Loop Trigger</div>
-            </div>
+            <div class="map-header"><span style="font-weight: bold; color: #94a3b8;">🛰️ LIVE MAP PORTAL</span><span class="eta-badge" id="etaDisplay">ETA: STANDBY</span></div>
+            <div id="map"></div>
             <div class="terminal-panel">
                 <div class="terminal-header"><span>SYSTEM CORE DATA LOGGER</span><span style="color: #10b981;">● ONLINE</span></div>
                 <div id="terminalStream" class="terminal-stream"></div>
             </div>
         </section>
     </main>
+    <script src="https://cloudflare.com"></script>
     <script>
         let selectedEcosystem = 'gov'; let simulationInterval = null; let selectedLocation = null;
+        let map = null; let patientMarker = null; let ambulanceMarker = null; let routePolyline = null;
+        let sirenContext = null; let sirenOscillator = null;
         const locationDatabase = {
-            "madhapur": { name: "Madhapur Core Area", govCount: 4, pvtCount: 9, distanceKm: 6.8, baseCost: 450, kmRate: 35, hospitals: ["Medicover Hospitals, Madhapur", "Image Hospitals"] },
-            "gachibowli": { name: "Gachibowli Financial Hub", govCount: 3, pvtCount: 12, distanceKm: 9.4, baseCost: 550, kmRate: 40, hospitals: ["Continental Hospitals", "AIG Hospitals"] },
-            "jubilee hills": { name: "Jubilee Hills Checkpost", govCount: 6, pvtCount: 7, distanceKm: 3.2, baseCost: 350, kmRate: 30, hospitals: ["Apollo Hospitals", "Indo-American Hospital"] },
-            "kondapur": { name: "Kondapur Botanical Zone", govCount: 2, pvtCount: 8, distanceKm: 8.1, baseCost: 500, kmRate: 35, hospitals: ["KIMS Hospital", "Ar时代 Healthcare"] }
+            "madhapur": { name: "Madhapur Area", govCount: 4, pvtCount: 9, distanceKm: 6.8, baseCost: 450, kmRate: 35, hospitals: ["Medicover Hospitals", "Image Hospitals"], lat: 17.4483, lng: 78.3915 },
+            "gachibowli": { name: "Gachibowli Hub", govCount: 3, pvtCount: 12, distanceKm: 9.4, baseCost: 550, kmRate: 40, hospitals: ["Continental Hospitals", "AIG Hospitals"], lat: 17.4401, lng: 78.3489 },
+            "jubilee hills": { name: "Jubilee Hills", govCount: 6, pvtCount: 7, distanceKm: 3.2, baseCost: 350, kmRate: 30, hospitals: ["Apollo Hospitals", "Indo-American Hospital"], lat: 17.4279, lng: 78.4116 },
+            "kondapur": { name: "Kondapur Zone", govCount: 2, pvtCount: 8, distanceKm: 8.1, baseCost: 500, kmRate: 35, hospitals: ["KIMS Hospital", "Medicover Kondapur"], lat: 17.4622, lng: 78.3568 }
         };
         window.addEventListener('DOMContentLoaded', () => {
             const s = document.getElementById('terminalStream'); if (!s) return; const t = new Date().toLocaleTimeString();
-            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Core database pipeline synchronized.</span></div>`;
-            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Hybrid regional tariff arrays active.</span></div>`;
+            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Core directories initialized.</span></div>`;
+            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Leaflet mapping layer generated.</span></div>`;
+            map = L.map('map', { zoomControl: false }).setView([17.44, 78.38], 13);
+            L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
         });
+        function startSirenSound() {
+            try {
+                sirenContext = new (window.AudioContext || window.webkitAudioContext)();
+                sirenOscillator = sirenContext.createOscillator(); let gainNode = sirenContext.createGain();
+                sirenOscillator.type = 'sawtooth'; sirenOscillator.frequency.setValueAtTime(440, sirenContext.currentTime);
+                sirenOscillator.frequency.linearRampToValueAtTime(880, sirenContext.currentTime + 0.4);
+                sirenOscillator.frequency.linearRampToValueAtTime(440, sirenContext.currentTime + 0.8);
+                gainNode.gain.setValueAtTime(0.15, sirenContext.currentTime);
+                sirenOscillator.connect(gainNode); gainNode.connect(sirenContext.destination); sirenOscillator.start();
+            } catch (e) { console.log("Audio contexts locked."); }
+        }
+        function stopSirenSound() { if (sirenOscillator) { try { sirenOscillator.stop(); sirenContext.close(); } catch(e){} sirenOscillator = null; } }
         function handleLocationTyping(v) {
             const d = document.getElementById('suggestionsDropdown'); d.innerHTML = ''; if (!v || simulationInterval) { d.style.display = 'none'; return; }
             const k = v.toLowerCase().trim(); const m = Object.keys(locationDatabase).filter(x => x.includes(k));
@@ -208,8 +211,11 @@ html_content = """<!DOCTYPE html>
         function selectLocation(x) {
             selectedLocation = locationDatabase[x]; document.getElementById('locationInput').value = selectedLocation.name; document.getElementById('suggestionsDropdown').style.display = 'none';
             document.getElementById('govRadarCount').innerText = selectedLocation.govCount + " Units Active"; document.getElementById('pvtRadarCount').innerText = selectedLocation.pvtCount + " Units Idling";
-            document.getElementById('patientLabelText').innerText = "Location: " + selectedLocation.name; document.getElementById('patientUiNode').style.display = 'block'; document.getElementById('ambulanceSprite').style.display = 'block';
             const b = document.getElementById('dispatchBtn'); b.disabled = false; b.innerText = "⚡ Initialize Routing Instance"; calculateInvoice();
+            if (patientMarker) map.removeLayer(patientMarker); if (ambulanceMarker) map.removeLayer(ambulanceMarker); if (routePolyline) map.removeLayer(routePolyline);
+            map.panTo([selectedLocation.lat, selectedLocation.lng]);
+            let patientIcon = L.divIcon({ className: 'custom-div-icon', html: '<div class="map-emoji">👤</div>' });
+            patientMarker = L.marker([selectedLocation.lat, selectedLocation.lng], { icon: patientIcon }).addTo(map);
             logToTerminal(`Location locked: ${selectedLocation.name}. Nearby Facilities: ${selectedLocation.hospitals.join(' | ')}`);
         }
         function calculateInvoice() {
@@ -218,32 +224,43 @@ html_content = """<!DOCTYPE html>
         }
         function logToTerminal(m, y = 'info') { const s = document.getElementById('terminalStream'); if (!s) return; const t = new Date().toLocaleTimeString(); let c = '#cbd5e1'; if (y === 'warn') c = '#fbbf24'; if (y === 'success') c = '#22d3ee'; s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:${c}">${m}</span></div>`; s.scrollTop = s.scrollHeight; }
         function selectTier(t) {
-            if (simulationInterval) return; selectedEcosystem = t; const bG = document.getElementById('btnGov'); const bP = document.getElementById('btnPvt'); const pS = document.getElementById('pvtSub'); const aL = document.getElementById('ambLabel'); const aI = document.getElementById('ambIcon'); const aB = document.getElementById('ambIconBg'); const rL = document.getElementById('routeLine');
-            if (t === 'gov') { bG.className = "tab-btn active-gov"; bP.className = "tab-btn"; pS.style.color = "#64748b"; if (aL) { aL.innerText = "Gov 108"; aL.className = "node-label label-rose"; } if (aI) aI.innerText = "🚒"; if (aB) aB.className = "amb-icon-bg icon-rose"; if (rL) rL.setAttribute('stroke', '#f43f5e'); } else { bG.className = "tab-btn"; bP.className = "tab-btn active-pvt"; pS.style.color = "#fbbf24"; if (aL) { aL.innerText = "Pvt Med-Cab"; aL.className = "node-label label-amber"; } if (aI) aI.innerText = "🚑"; if (aB) aB.className = "amb-icon-bg icon-amber"; if (rL) rL.setAttribute('stroke', '#f59e0b'); } calculateInvoice(); logToTerminal(`Routing tier switched to ${t === 'gov' ? 'Government 108' : 'Private Aggregator Network'}.`);
+            if (simulationInterval) return; selectedEcosystem = t; const bG = document.getElementById('btnGov'); const bP = document.getElementById('btnPvt'); const pS = document.getElementById('pvtSub');
+            if (t === 'gov') { bG.className = "tab-btn active-gov"; bP.className = "tab-btn"; pS.style.color = "#64748b"; } else { bG.className = "tab-btn"; bP.className = "tab-btn active-pvt"; pS.style.color = "#fbbf24"; } 
+            calculateInvoice(); logToTerminal(`Routing tier switched to ${t === 'gov' ? 'Government 108' : 'Private Aggregator Network'}.`);
         }
         function startDispatch() {
-            if (!selectedLocation || simulationInterval) return; const w = document.getElementById('idleWatermark'); if (w) w.classList.add('display-none');
-            const a = document.getElementById('ambulanceSprite'); const r = document.getElementById('routeLine'); const b = document.getElementById('dispatchBtn'); const e = document.getElementById('etaDisplay');
-            if (a) { a.style.left = '85%'; a.style.top = '25%'; } if (r) r.classList.add('display-none'); if (e) { e.innerText = "ETA: SPINNING UP"; e.style.color = "#fbbf24"; } if (b) { b.disabled = true; b.innerText = "🚨 DISPATCH ACTIVE"; }
+            if (!selectedLocation || simulationInterval) return; const b = document.getElementById('dispatchBtn'); const e = document.getElementById('etaDisplay');
+            if (e) { e.innerText = "ETA: SPINNING UP"; e.style.color = "#fbbf24"; } if (b) { b.disabled = true; b.innerText = "🚨 DISPATCH ACTIVE"; }
             document.getElementById('step2').className = "timeline-step"; document.getElementById('dot2').innerHTML = "2"; document.getElementById('step3').className = "timeline-step"; document.getElementById('dot3').innerHTML = "3";
             logToTerminal(`Initializing emergency dispatch route allocation for ${selectedLocation.name}...`, 'warn');
-            setTimeout(() => { document.getElementById('dot1').innerHTML = "✓"; document.getElementById('step1').className = "timeline-step completed"; logToTerminal(`Target suggestions verified from local cluster: ${selectedLocation.hospitals.join(' & ')}`, 'success'); document.getElementById('step2').className = "timeline-step active"; }, 1000);
-            setTimeout(() => { document.getElementById('dot2').innerHTML = "✓"; document.getElementById('step2').className = "timeline-step completed"; if (r) { r.classList.remove('display-none'); r.setAttribute('x2', '85%'); r.setAttribute('y2', '25%'); } logToTerminal(`Secure link assigned to available cluster node: AMB-${selectedEcosystem.toUpperCase()}-9942`, 'success'); document.getElementById('step3').className = "timeline-step active"; }, 2500);
-            setTimeout(() => { document.getElementById('dot3').innerHTML = "●"; logToTerminal("Commencing geographic tracking mechanics loop.", 'success'); runAnimation(); }, 4000);
+            let ambStartLat = selectedLocation.lat + 0.015; let ambStartLng = selectedLocation.lng + 0.02;
+            setTimeout(() => { document.getElementById('dot1').innerHTML = "✓"; document.getElementById('step1').className = "timeline-step completed"; logToTerminal(`Target suggestions verified from local database cluster.`, 'success'); document.getElementById('step2').className = "timeline-step active"; }, 1000);
+            setTimeout(() => { 
+                document.getElementById('dot2').innerHTML = "✓"; document.getElementById('step2').className = "timeline-step completed"; 
+                let ambIcon = L.divIcon({ className: 'custom-div-icon', html: `<div class="map-emoji">${selectedEcosystem === 'gov' ? '🚒' : '🚑'}</div>` });
+                ambulanceMarker = L.marker([ambStartLat, ambStartLng], { icon: ambIcon }).addTo(map);
+                routePolyline = L.polyline([[selectedLocation.lat, selectedLocation.lng], [ambStartLat, ambStartLng]], { color: selectedEcosystem === 'gov' ? '#f43f5e' : '#fbbf24', weight: 3, dashArray: '6' }).addTo(map);
+                logToTerminal(`Secure link assigned to available cluster node: AMB-${selectedEcosystem.toUpperCase()}-9942`, 'success'); document.getElementById('step3').className = "timeline-step active"; 
+            }, 2500);
+            setTimeout(() => { document.getElementById('dot3').innerHTML = "●"; logToTerminal("Commencing geographic tracking mechanics loop.", 'success'); runAnimation(ambStartLat, ambStartLng); }, 4000);
         }
-        function runAnimation() {
-            const a = document.getElementById('ambulanceSprite'); const r = document.getElementById('routeLine'); const e = document.getElementById('etaDisplay'); const b = document.getElementById('dispatchBtn');
-            let sL = 85, sT = 25, tL = 33.333, tT = 50, p = 0;
+        function runAnimation(sLat, sLng) {
+            const e = document.getElementById('etaDisplay'); const b = document.getElementById('dispatchBtn'); let p = 0; startSirenSound();
             simulationInterval = setInterval(() => {
                 p += 2;
                 if (p <= 100) {
-                    let cL = sL + (tL - sL) * (p / 100); let cT = sT + (tT - sT) * (p / 100);
-                    if (a) { a.style.left = cL + '%'; a.style.top = cT + '%'; } if (r) { r.setAttribute('x2', cL + '%'); r.setAttribute('y2', cT + '%'); }
-                    let m = Math.ceil(12 * (1 - (p / 100))); if (e) { e.innerText = `ETA: ${m} MINS`; }
+                    let curLat = sLat + (selectedLocation.lat - sLat) * (p / 100); let curLng = sLng + (selectedLocation.lng - sLng) * (p / 100);
+                    if (ambulanceMarker) ambulanceMarker.setLatLng([curLat, curLng]);
+                    if (routePolyline) routePolyline.setLatLngs([[curLat, curLng], [selectedLocation.lat, selectedLocation.lng]]);
+                    let mins = Math.ceil(12 * (1 - (p / 100))); if (e) { e.innerText = `ETA: ${mins} MINS`; }
                     if (p % 20 === 0) { logToTerminal(`Telemetry Sync: Radius delta remaining -> ${(selectedLocation.distanceKm * (1 - (p / 100))).toFixed(2)} KM`); }
                 } else {
-                    clearInterval(simulationInterval); simulationInterval = null; document.getElementById('dot3').innerHTML = "✓"; document.getElementById('step3').className = "timeline-step completed";
-                    if (e) { e.innerText = "ARRIVED"; e.style.color = "#10b981"; } if (r) r.classList.add('display-none'); logToTerminal("Vehicle arrived safely at target scene coordinates.", 'success');
+                    clearInterval(simulationInterval); simulationInterval = null; stopSirenSound();
+                    document.getElementById('dot3').innerHTML = "✓"; document.getElementById('step3').className = "timeline-step completed";
+                    if (e) { e.innerText = "ARRIVED"; e.style.color = "#10b981"; } 
+                    if (routePolyline) map.removeLayer(routePolyline);
+                    
+                    logToTerminal("Vehicle arrived safely at target scene coordinates.", 'success');
                     if (b) { b.disabled = false; b.innerText = "⚡ Initialize Routing Instance"; }
                 }
             }, 150);
@@ -252,30 +269,24 @@ html_content = """<!DOCTYPE html>
 </body>
 </html>
 """
-
 # 3. RUNTIME PIPELINE BUILDER & RELATIONAL DATABASE AUTOMATION ENGINE
-# 3. RUNTIME HOSTING BUILDER & RELATIONAL DATABASE ENGAGEMENT ENGINE
 def run():
     print("[SYSTEM] Starting structural asset build compilation...")
     init_database()
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_content)
     print("[SYSTEM] Native client interface cleanly generated inside 'index.html'.")
-    
-    # CRITICAL HOSTING UPGRADE: Read the port dynamically from the platform
-    port = int(os.environ.get("PORT", 8000))
-    
     handler = http.server.SimpleHTTPRequestHandler
-    # Bind to 0.0.0.0 so the public web can securely connect to it
+    port = int(os.environ.get("PORT", 8000))
     with socketserver.TCPServer(("0.0.0.0", port), handler) as httpd:
         print("\n" + "="*65)
-        print(f"🚀 ENGINE STABILIZED PERMANENTLY ON PORT {port}")
+        print(f"🚀 LOCAL MICROSERVER STACK STABILIZED ON PORT {port}")
+        print("👉 Laptop Preview Portal Link: http://localhost:8000")
         print("="*65 + "\n")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
-            print("\n[SYSTEM] Server session closed safely.")
+            print("\n[SYSTEM] Relational database environment session closed safely.")
 
 if __name__ == "__main__":
     run()
-
