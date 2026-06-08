@@ -128,7 +128,7 @@ html_content = """<!DOCTYPE html>
                 <p class="panel-title">Allocation Nodes</p>
                 <div class="input-group">
                     <span class="input-label">Manually Type Location (e.g. Madhapur, Gachibowli)</span>
-                    <input type="text" id="locationInput" class="input-field" placeholder="Type neighborhood name..." onkeyup="handleLocationTyping(this.value)">
+                    <input type="text" id="locationInput" class="input-field" placeholder="Type neighborhood name (e.g. Madhapur, Gachibowli)..." oninput="handleLocationTyping(this.value)" autocomplete="off">
                     <div id="suggestionsDropdown" class="suggestions-dropdown"></div>
                 </div>
                 <div class="input-group">
