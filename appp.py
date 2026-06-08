@@ -95,7 +95,7 @@ html_content = """<!DOCTYPE html>
         .timeline-step.active .timeline-sub { color: #94a3b8; }
         .map-wrapper { display: flex; flex-direction: column; height: 100%; }
         .map-header { background-color: #1e293b; border-bottom: 1px solid #334155; padding: 10px 16px; border-top-left-radius: 12px; border-top-right-radius: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; }
-        #map { height: 260px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; border: 1px solid #1e293b; border-top: none; z-index: 10; }
+        #map { height: 300px !important; width: 100% !important; min-height: 300px !important; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; border: 1px solid #1e293b; border-top: none; z-index: 1 !important; position: relative !important; }
         .eta-badge { font-family: monospace; background-color: #020617; color: #f43f5e; padding: 4px 8px; border-radius: 6px; border: 1px solid #334155; font-weight: bold; }
         .terminal-panel { background-color: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; font-family: monospace; font-size: 0.75rem; height: 160px; display: flex; flex-direction: column; margin-top: 20px; }
         .terminal-header { color: #475569; border-bottom: 1px solid #1e293b; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; font-weight: bold; }
@@ -164,9 +164,11 @@ html_content = """<!DOCTYPE html>
                 </div>
             </div>
         </section>
-        <section class="map-wrapper">
+               <section class="map-wrapper">
             <div class="map-header"><span style="font-weight: bold; color: #94a3b8;">🛰️ LIVE MAP PORTAL</span><span class="eta-badge" id="etaDisplay">ETA: STANDBY</span></div>
+            <!-- This is the exact target mount node line -->
             <div id="map"></div>
+
             <div class="terminal-panel">
                 <div class="terminal-header"><span>SYSTEM CORE DATA LOGGER</span><span style="color: #10b981;">● ONLINE</span></div>
                 <div id="terminalStream" class="terminal-stream"></div>
