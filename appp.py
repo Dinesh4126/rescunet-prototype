@@ -41,8 +41,9 @@ html_content = """<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RescuNet MVP Prototype</title>
-    <!-- Leaflet.js Interactive Mapping CSS Engine Link -->
+    <!-- CRITICAL MAP FIX: Leaflet Mapping Files Loaded First inside Head Asset Space -->
     <link rel="stylesheet" href="https://cloudflare.com" />
+    <script src="https://cloudflare.com"></script>
     <style>
         body {
             background-color: #020617; color: #f1f5f9;
@@ -95,6 +96,8 @@ html_content = """<!DOCTYPE html>
         .timeline-step.active .timeline-sub { color: #94a3b8; }
         .map-wrapper { display: flex; flex-direction: column; height: 100%; }
         .map-header { background-color: #1e293b; border-bottom: 1px solid #334155; padding: 10px 16px; border-top-left-radius: 12px; border-top-right-radius: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; }
+        
+        /* Map Layout Overrides to Fix Blank Canvas Issues */
         #map { height: 300px !important; width: 100% !important; min-height: 300px !important; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; border: 1px solid #1e293b; border-top: none; z-index: 1 !important; position: relative !important; }
         .eta-badge { font-family: monospace; background-color: #020617; color: #f43f5e; padding: 4px 8px; border-radius: 6px; border: 1px solid #334155; font-weight: bold; }
         .terminal-panel { background-color: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; font-family: monospace; font-size: 0.75rem; height: 160px; display: flex; flex-direction: column; margin-top: 20px; }
@@ -164,22 +167,18 @@ html_content = """<!DOCTYPE html>
                 </div>
             </div>
         </section>
-               <section class="map-wrapper">
-            <div class="map-header"><span style="font-weight: bold; color: #94a3b8;">🛰️ LIVE MAP PORTAL</span><span class="eta-badge" id="etaDisplay">ETA: STANDBY</span></div>
-            <!-- This is the exact target mount node line -->
+        <section class="map-wrapper">
+            <div class="map-header"><span style="font-weight: bold; color: #94a3b8;">🛰 McKay VIEWPORT</span><span class="eta-badge" id="etaDisplay">ETA: STANDBY</span></div>
             <div id="map"></div>
-
             <div class="terminal-panel">
                 <div class="terminal-header"><span>SYSTEM CORE DATA LOGGER</span><span style="color: #10b981;">● ONLINE</span></div>
                 <div id="terminalStream" class="terminal-stream"></div>
             </div>
         </section>
     </main>
-    <script src="https://cloudflare.com"></script>
     <script>
         let selectedEcosystem = 'gov'; let simulationInterval = null; let selectedLocation = null;
         let map = null; let patientMarker = null; let ambulanceMarker = null; let routePolyline = null;
-        let sirenContext = null; let sirenOscillator = null;
         const locationDatabase = {
             "madhapur": { name: "Madhapur Area", govCount: 4, pvtCount: 9, distanceKm: 6.8, baseCost: 450, kmRate: 35, hospitals: ["Medicover Hospitals", "Image Hospitals"], lat: 17.4483, lng: 78.3915 },
             "gachibowli": { name: "Gachibowli Hub", govCount: 3, pvtCount: 12, distanceKm: 9.4, baseCost: 550, kmRate: 40, hospitals: ["Continental Hospitals", "AIG Hospitals"], lat: 17.4401, lng: 78.3489 },
@@ -189,22 +188,20 @@ html_content = """<!DOCTYPE html>
         window.addEventListener('DOMContentLoaded', () => {
             const s = document.getElementById('terminalStream'); if (!s) return; const t = new Date().toLocaleTimeString();
             s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Core directories initialized.</span></div>`;
-            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Leaflet mapping layer generated.</span></div>`;
+            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Leaflet canvas fully rendered.</span></div>`;
             map = L.map('map', { zoomControl: false }).setView([17.44, 78.38], 13);
             L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(map);
         });
-        function startSirenSound() {
-            try {
-                sirenContext = new (window.AudioContext || window.webkitAudioContext)();
-                sirenOscillator = sirenContext.createOscillator(); let gainNode = sirenContext.createGain();
-                sirenOscillator.type = 'sawtooth'; sirenOscillator.frequency.setValueAtTime(440, sirenContext.currentTime);
-                sirenOscillator.frequency.linearRampToValueAtTime(880, sirenContext.currentTime + 0.4);
-                sirenOscillator.frequency.linearRampToValueAtTime(440, sirenContext.currentTime + 0.8);
-                gainNode.gain.setValueAtTime(0.15, sirenContext.currentTime);
-                sirenOscillator.connect(gainNode); gainNode.connect(sirenContext.destination); sirenOscillator.start();
-            } catch (e) { console.log("Audio contexts locked."); }
+        
+        // HTML5 Text-to-Speech Engine Audio Module
+        function runVoiceAnnouncement(phraseText) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(phraseText);
+                utterance.rate = 1.0; utterance.pitch = 1.0; utterance.lang = 'en-IN';
+                window.speechSynthesis.speak(utterance);
+            }
         }
-        function stopSirenSound() { if (sirenOscillator) { try { sirenOscillator.stop(); sirenContext.close(); } catch(e){} sirenOscillator = null; } }
+
         function handleLocationTyping(v) {
             const d = document.getElementById('suggestionsDropdown'); d.innerHTML = ''; if (!v || simulationInterval) { d.style.display = 'none'; return; }
             const k = v.toLowerCase().trim(); const m = Object.keys(locationDatabase).filter(x => x.includes(k));
@@ -235,6 +232,10 @@ html_content = """<!DOCTYPE html>
             if (e) { e.innerText = "ETA: SPINNING UP"; e.style.color = "#fbbf24"; } if (b) { b.disabled = true; b.innerText = "🚨 DISPATCH ACTIVE"; }
             document.getElementById('step2').className = "timeline-step"; document.getElementById('dot2').innerHTML = "2"; document.getElementById('step3').className = "timeline-step"; document.getElementById('dot3').innerHTML = "3";
             logToTerminal(`Initializing emergency dispatch route allocation for ${selectedLocation.name}...`, 'warn');
+            
+            // Triggers Voice Announcement Milestone 1
+            runVoiceAnnouncement("Booking confirmed");
+
             let ambStartLat = selectedLocation.lat + 0.015; let ambStartLng = selectedLocation.lng + 0.02;
             setTimeout(() => { document.getElementById('dot1').innerHTML = "✓"; document.getElementById('step1').className = "timeline-step completed"; logToTerminal(`Target suggestions verified from local database cluster.`, 'success'); document.getElementById('step2').className = "timeline-step active"; }, 1000);
             setTimeout(() => { 
@@ -247,21 +248,23 @@ html_content = """<!DOCTYPE html>
             setTimeout(() => { document.getElementById('dot3').innerHTML = "●"; logToTerminal("Commencing geographic tracking mechanics loop.", 'success'); runAnimation(ambStartLat, ambStartLng); }, 4000);
         }
         function runAnimation(sLat, sLng) {
-            const e = document.getElementById('etaDisplay'); const b = document.getElementById('dispatchBtn'); let p = 0; startSirenSound();
+            const e = document.getElementById('etaDisplay'); const b = document.getElementById('dispatchBtn'); let p = 0;
             simulationInterval = setInterval(() => {
                 p += 2;
                 if (p <= 100) {
                     let curLat = sLat + (selectedLocation.lat - sLat) * (p / 100); let curLng = sLng + (selectedLocation.lng - sLng) * (p / 100);
                     if (ambulanceMarker) ambulanceMarker.setLatLng([curLat, curLng]);
                     if (routePolyline) routePolyline.setLatLngs([[curLat, curLng], [selectedLocation.lat, selectedLocation.lng]]);
-                    let mins = Math.ceil(12 * (1 - (p / 100))); if (e) { e.innerText = `ETA: ${mins} MINS`; }
+                    let mins = Math.ceil(12 * (1 - (p / 100))); if (e) { e.innerText = `ETA: ${m} MINS`; }
                     if (p % 20 === 0) { logToTerminal(`Telemetry Sync: Radius delta remaining -> ${(selectedLocation.distanceKm * (1 - (p / 100))).toFixed(2)} KM`); }
                 } else {
-                    clearInterval(simulationInterval); simulationInterval = null; stopSirenSound();
+                    clearInterval(simulationInterval); simulationInterval = null;
                     document.getElementById('dot3').innerHTML = "✓"; document.getElementById('step3').className = "timeline-step completed";
-                    if (e) { e.innerText = "ARRIVED"; e.style.color = "#10b981"; } 
-                    if (routePolyline) map.removeLayer(routePolyline);
+                    if (e) { e.innerText = "ARRIVED"; e.style.color = "#10b981"; } if (routePolyline) map.removeLayer(routePolyline);
                     
+                    // Triggers Voice Announcement Milestone 2
+                    runVoiceAnnouncement("Vehicle arrived");
+
                     logToTerminal("Vehicle arrived safely at target scene coordinates.", 'success');
                     if (b) { b.disabled = false; b.innerText = "⚡ Initialize Routing Instance"; }
                 }
@@ -271,13 +274,16 @@ html_content = """<!DOCTYPE html>
 </body>
 </html>
 """
+
 # 3. RUNTIME PIPELINE BUILDER & RELATIONAL DATABASE AUTOMATION ENGINE
 def run():
     print("[SYSTEM] Starting structural asset build compilation...")
     init_database()
+    # Exporting frontend files directly into local directory space context
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_content)
     print("[SYSTEM] Native client interface cleanly generated inside 'index.html'.")
+    
     handler = http.server.SimpleHTTPRequestHandler
     port = int(os.environ.get("PORT", 8000))
     with socketserver.TCPServer(("0.0.0.0", port), handler) as httpd:
