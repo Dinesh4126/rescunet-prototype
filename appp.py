@@ -198,12 +198,30 @@ html_content = """<!DOCTYPE html>
     <script>
         let selectedEcosystem = 'gov'; let simulationInterval = null; let selectedLocation = null;
         let sirenContext = null; let sirenOscillator = null; let currentGeneratedOtp = "";
+               // Exact original database structure from your working code version
         const locationDatabase = {
-            "madhapur": { name: "Madhapur Core Area", govCount: 4, pvtCount: 9, distanceKm: 6.8, baseCost: 450, kmRate: 35, hospitals: ["Medicover Hospitals", "Image Hospitals"] },
-            "gachibowli": { name: "Gachibowli Financial Hub", govCount: 3, pvtCount: 12, distanceKm: 9.4, baseCost: 550, kmRate: 40, hospitals: ["Continental Hospitals", "AIG Hospitals"] },
-            "jubilee hills": { name: "Jubilee Hills Checkpost", govCount: 6, pvtCount: 7, distanceKm: 3.2, baseCost: 350, kmRate: 30, hospitals: ["Apollo Hospitals", "Indo-American Hospital"] },
-            "kondapur": { name: "Kondapur Botanical Zone", govCount: 2, pvtCount: 8, distanceKm: 8.1, baseCost: 500, kmRate: 35, hospitals: ["KIMS Hospital", "Ar时代 Healthcare"] }
+            "madhapur": { 
+                name: "Madhapur Core Area", 
+                govCount: 4, pvtCount: 9, distanceKm: 6.8, baseCost: 450, kmRate: 35, 
+                hospitals: ["Medicover Hospitals, Madhapur", "Image Hospitals"] 
+            },
+            "gachibowli": { 
+                name: "Gachibowli Financial Hub", 
+                govCount: 3, pvtCount: 12, distanceKm: 9.4, baseCost: 550, kmRate: 40, 
+                hospitals: ["Continental Hospitals", "AIG Hospitals"] 
+            },
+            "jubilee hills": { 
+                name: "Jubilee Hills Checkpost", 
+                govCount: 6, pvtCount: 7, distanceKm: 3.2, baseCost: 350, kmRate: 30, 
+                hospitals: ["Apollo Hospitals", "Indo-American Hospital"] 
+            },
+            "kondapur": { 
+                name: "Kondapur Botanical Zone", 
+                govCount: 2, pvtCount: 8, distanceKm: 8.1, baseCost: 500, kmRate: 35, 
+                hospitals: ["KIMS Hospital", "Ar时代 Healthcare"] 
+            }
         };
+
         window.addEventListener('DOMContentLoaded', () => {
             const s = document.getElementById('terminalStream'); if (!s) return; const t = new Date().toLocaleTimeString();
             s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Core workspace components synchronized.</span></div>`;
