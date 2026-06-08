@@ -92,8 +92,6 @@ html_content = """<!DOCTYPE html>
         .timeline-step.active .timeline-sub { color: #94a3b8; }
         .map-wrapper { display: flex; flex-direction: column; height: 100%; }
         .map-header { background-color: #1e293b; border-bottom: 1px solid #334155; padding: 10px 16px; border-top-left-radius: 12px; border-top-right-radius: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; }
-        
-        /* RESTORED STABLE MOBILE CONTAINER CSS CANVAS */
         .map-viewport { background-color: #020617; height: 260px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; position: relative; overflow: hidden; border: 1px solid #1e293b; border-top: none; }
         .map-grid { position: absolute; inset: 0; opacity: 0.05; background-image: linear-gradient(#94a3b8 1px, transparent 1px), linear-gradient(90deg, #94a3b8 1px, transparent 1px); background-size: 20px 20px; }
         .eta-badge { font-family: monospace; background-color: #020617; color: #f43f5e; padding: 4px 8px; border-radius: 6px; border: 1px solid #334155; font-weight: bold; }
@@ -113,6 +111,7 @@ html_content = """<!DOCTYPE html>
         .terminal-header { color: #475569; border-bottom: 1px solid #1e293b; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; font-weight: bold; }
         .terminal-stream { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
         .log-time { color: #334155; margin-right: 6px; font-weight: bold; }
+        .sim-telemetry-pill { font-family: monospace; font-size: 0.65rem; font-weight: bold; background: #1e293b; padding: 4px 8px; border-radius: 4px; border: 1px solid #334155; }
     </style>
 </head>
 <body>
@@ -155,17 +154,6 @@ html_content = """<!DOCTYPE html>
                 <button id="dispatchBtn" onclick="startDispatch()" class="action-btn" disabled>Select Location From Suggestions</button>
             </div>
             <div class="panel-card">
-                <!-- TELEMETRY DISPLAY BADGES FOR SECURITY OTP & LIVE VELOCITY SPEED -->
-                <div style="display: flex; gap: 12px; margin-bottom: 12px;">
-                    <div style="flex: 1; background-color: #020617; border: 1px solid #1e293b; padding: 10px; border-radius: 8px; text-align: center;">
-                        <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; display: block; letter-spacing: 0.05em;">SECURITY AUTH LAYER</span>
-                        <div id="otpDisplayPanel" style="font-size: 1rem; font-weight: black; font-family: monospace; color: #cbd5e1; margin-top: 4px;">OTP: READY</div>
-                    </div>
-                    <div style="flex: 1; background-color: #020617; border: 1px solid #1e293b; padding: 10px; border-radius: 8px; text-align: center;">
-                        <span style="font-size: 0.65rem; color: #94a3b8; font-weight: bold; display: block; letter-spacing: 0.05em;">VELOCITY TELEMETRY</span>
-                        <div id="speedDisplayPanel" style="font-size: 1rem; font-weight: black; font-family: monospace; color: #cbd5e1; margin-top: 4px;">SPEED: 0 KM/H</div>
-                    </div>
-                </div>
                 <p class="panel-title">Ecosystem Proximity Radar (Live)</p>
                 <div class="radar-status-bar">
                     <div style="border-right: 1px solid #1e293b;">
@@ -186,7 +174,14 @@ html_content = """<!DOCTYPE html>
             </div>
         </section>
         <section class="map-wrapper">
-            <div class="map-header"><span style="font-weight: bold; color: #94a3b8;">🛰️ SIMULATED VIEWPORT</span><span class="eta-badge" id="etaDisplay">ETA: STANDBY</span></div>
+            <div class="map-header">
+                <span style="font-weight: bold; color: #94a3b8; display: flex; gap: 8px; align-items: center;">
+                    <span>🛰️ VIEWPORT</span>
+                    <span id="speedDisplayPanel" class="sim-telemetry-pill" style="color:#cbd5e1;">SPEED: 0 KM/H</span>
+                    <span id="otpDisplayPanel" class="sim-telemetry-pill" style="color:#e11d48; display:none;">OTP: ----</span>
+                </span>
+                <span class="eta-badge" id="etaDisplay">ETA: STANDBY</span>
+            </div>
             <div class="map-viewport">
                 <div class="map-grid"></div>
                 <svg style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;"><line id="routeLine" x1="33.333%" y1="50%" x2="85%" y2="25%" stroke="#f43f5e" stroke-width="2" stroke-dasharray="5" class="display-none" /></svg>
@@ -202,7 +197,7 @@ html_content = """<!DOCTYPE html>
     </main>
     <script>
         let selectedEcosystem = 'gov'; let simulationInterval = null; let selectedLocation = null;
-        let sirenContext = null; let sirenOscillator = null;
+        let sirenContext = null; let sirenOscillator = null; let currentGeneratedOtp = "";
         const locationDatabase = {
             "madhapur": { name: "Madhapur Core Area", govCount: 4, pvtCount: 9, distanceKm: 6.8, baseCost: 450, kmRate: 35, hospitals: ["Medicover Hospitals", "Image Hospitals"] },
             "gachibowli": { name: "Gachibowli Financial Hub", govCount: 3, pvtCount: 12, distanceKm: 9.4, baseCost: 550, kmRate: 40, hospitals: ["Continental Hospitals", "AIG Hospitals"] },
@@ -211,32 +206,39 @@ html_content = """<!DOCTYPE html>
         };
         window.addEventListener('DOMContentLoaded', () => {
             const s = document.getElementById('terminalStream'); if (!s) return; const t = new Date().toLocaleTimeString();
-            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Core directories initialized safely.</span></div>`;
-            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] CSS fallback simulation vector grids online.</span></div>`;
+            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Core workspace components synchronized.</span></div>`;
         });
-        
-        // HTML5 Audio Modulation Module - Real-time Ambulance Siren Synthesizer
+        function runVoiceAnnouncement(txt, nextCallback) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(txt);
+                utterance.rate = 0.95; utterance.pitch = 1.0; utterance.lang = 'en-IN';
+                if (nextCallback) utterance.onend = nextCallback;
+                window.speechSynthesis.speak(utterance);
+            } else if (nextCallback) { nextCallback(); }
+        }
         function startSiren() {
             try {
+                stopSiren();
                 sirenContext = new (window.AudioContext || window.webkitAudioContext)();
                 sirenOscillator = sirenContext.createOscillator();
                 let gainNode = sirenContext.createGain();
                 sirenOscillator.type = 'sawtooth';
-                gainNode.gain.setValueAtTime(0.08, sirenContext.currentTime);
-                sirenOscillator.connect(gainNode); gainNode.connect(sirenContext.destination);
-                sirenOscillator.start();
+                sirenOscillator.frequency.setValueAtTime(500, sirenContext.currentTime);
                 
-                // Continuous dual frequency swing sweep logic loop
-                let nextSweep = sirenContext.currentTime;
-                setInterval(() => {
-                    if (!sirenOscillator) return;
-                    sirenOscillator.frequency.setValueAtTime(550, sirenContext.currentTime);
-                    sirenOscillator.frequency.setValueAtTime(750, sirenContext.currentTime + 0.3);
-                }, 600);
-            } catch(e) {}
+                // Audio frequency modulation simulation
+                let mod = sirenContext.createOscillator();
+                let modGain = sirenContext.createGain();
+                mod.type = 'sine'; mod.frequency.value = 2; // 2Hz oscillation loop
+                modGain.gain.value = 150; // Frequency variation bounds
+                mod.connect(modGain); modGain.connect(sirenOscillator.frequency);
+                
+                gainNode.gain.setValueAtTime(0.12, sirenContext.currentTime);
+                sirenOscillator.connect(gainNode); gainNode.connect(sirenContext.destination);
+                mod.start(); sirenOscillator.start();
+            } catch (e) { console.log("Audio block: tap screen context interaction required."); }
         }
         function stopSiren() { if (sirenOscillator) { try { sirenOscillator.stop(); sirenContext.close(); } catch(e){} sirenOscillator = null; } }
-
         function handleLocationTyping(v) {
             const d = document.getElementById('suggestionsDropdown'); d.innerHTML = ''; if (!v || simulationInterval) { d.style.display = 'none'; return; }
             const k = v.toLowerCase().trim(); const m = Object.keys(locationDatabase).filter(x => x.includes(k));
@@ -247,7 +249,7 @@ html_content = """<!DOCTYPE html>
             document.getElementById('govRadarCount').innerText = selectedLocation.govCount + " Units Active"; document.getElementById('pvtRadarCount').innerText = selectedLocation.pvtCount + " Units Idling";
             document.getElementById('patientLabelText').innerText = "Location: " + selectedLocation.name; document.getElementById('patientUiNode').style.display = 'block'; document.getElementById('ambulanceSprite').style.display = 'block';
             const b = document.getElementById('dispatchBtn'); b.disabled = false; b.innerText = "⚡ Initialize Routing Instance"; calculateInvoice();
-            logToTerminal(`Location context matched: ${selectedLocation.name}. Facilities: ${selectedLocation.hospitals.join(' | ')}`);
+            logToTerminal(`Location locked: ${selectedLocation.name}. Nearby Facilities: ${selectedLocation.hospitals.join(' | ')}`);
         }
         function calculateInvoice() {
             if (!selectedLocation) return; const p = document.getElementById('priceInvoice');
@@ -256,37 +258,53 @@ html_content = """<!DOCTYPE html>
         function logToTerminal(m, y = 'info') { const s = document.getElementById('terminalStream'); if (!s) return; const t = new Date().toLocaleTimeString(); let c = '#cbd5e1'; if (y === 'warn') c = '#fbbf24'; if (y === 'success') c = '#22d3ee'; s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:${c}">${m}</span></div>`; s.scrollTop = s.scrollHeight; }
         function selectTier(t) {
             if (simulationInterval) return; selectedEcosystem = t; const bG = document.getElementById('btnGov'); const bP = document.getElementById('btnPvt'); const pS = document.getElementById('pvtSub'); const aL = document.getElementById('ambLabel'); const aI = document.getElementById('ambIcon'); const aB = document.getElementById('ambIconBg'); const rL = document.getElementById('routeLine');
-            if (t === 'gov') { bG.className = "tab-btn active-gov"; bP.className = "tab-btn"; pS.style.color = "#64748b"; if (aL) { aL.innerText = "Gov 108"; aL.className = "node-label label-rose"; } if (aI) aI.innerText = "🚒"; if (aB) aB.className = "amb-icon-bg icon-rose"; if (rL) rL.setAttribute('stroke', '#f43f5e'); } else { bG.className = "tab-btn"; bP.className = "tab-btn active-pvt"; pS.style.color = "#fbbf24"; if (aL) { aL.innerText = "Pvt Med-Cab"; aL.className = "node-label label-amber"; } if (aI) aI.innerText = "🚑"; if (aB) aB.className = "amb-icon-bg icon-amber"; if (rL) rL.setAttribute('stroke', '#f59e0b'); } calculateInvoice(); logToTerminal(`Routing tier switched to ${t === 'gov' ? 'Government 108 Core' : 'Private Marketplace Aggregator'}.`);
+            if (t === 'gov') { bG.className = "tab-btn active-gov"; bP.className = "tab-btn"; pS.style.color = "#64748b"; if (aL) { aL.innerText = "Gov 108"; aL.className = "node-label label-rose"; } if (aI) aI.innerText = "🚒"; if (aB) aB.className = "amb-icon-bg icon-rose"; if (rL) rL.setAttribute('stroke', '#f43f5e'); } else { bG.className = "tab-btn"; bP.className = "tab-btn active-pvt"; pS.style.color = "#fbbf24"; if (aL) { aL.innerText = "Pvt Med-Cab"; aL.className = "node-label label-amber"; } if (aI) aI.innerText = "🚑"; if (aB) aB.className = "amb-icon-bg icon-amber"; if (rL) rL.setAttribute('stroke', '#f59e0b'); } calculateInvoice(); logToTerminal(`Routing tier switched to ${t === 'gov' ? 'Government 108' : 'Private Aggregator Network'}.`);
         }
         function startDispatch() {
-            if (!selectedLocation || simulationInterval) return; const w = document.getElementById('idleWatermark'); if (w) w.classList.add('display-none');
-            const a = document.getElementById('ambulanceSprite'); const r = document.getElementById('routeLine'); const b = document.getElementById('dispatchBtn'); const e = document.getElementById('etaDisplay');
-            if (a) { a.style.left = '85%'; a.style.top = '25%'; } if (r) r.classList.add('display-none'); if (e) { e.innerText = "ETA: SPINNING UP"; e.style.color = "#fbbf24"; } if (b) { b.disabled = true; b.innerText = "🚨 DISPATCH ACTIVE"; }
+            if (!selectedLocation || simulationInterval) return; const b = document.getElementById('dispatchBtn'); const e = document.getElementById('etaDisplay');
+            if (e) { e.innerText = "ETA: SPINNING UP"; e.style.color = "#fbbf24"; } if (b) { b.disabled = true; b.innerText = "🚨 DISPATCH ACTIVE"; }
+            
+            // Random secure 4-digit token badge initialization
+            currentGeneratedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+            const otpPill = document.getElementById('otpDisplayPanel');
+            otpPill.innerText = `OTP: ${currentGeneratedOtp}`; otpPill.style.display = "inline-block";
+
             document.getElementById('step2').className = "timeline-step"; document.getElementById('dot2').innerHTML = "2"; document.getElementById('step3').className = "timeline-step"; document.getElementById('dot3').innerHTML = "3";
             
-            // GENERATING RANDOM 4-DIGIT SECURE OPT ON DISPATCH INITIATION
-            let randomOtp = Math.floor(1000 + Math.random() * 9000);
-            document.getElementById('otpDisplayPanel').innerText = "OTP: " + randomOtp;
-            document.getElementById('otpDisplayPanel').style.color = "#10b981";
+            // Sequential Audio Logic Sequence Part 1: Voice announcement starts first
+            runVoiceAnnouncement("Booking confirmed", () => {
+                // Audio siren starts immediately after announcement finishes speaking
+                startSiren();
+            });
 
-            logToTerminal(`Initializing emergency dispatch route allocation loops for ${selectedLocation.name}...`, 'warn');
-            setTimeout(() => { document.getElementById('dot1').innerHTML = "✓"; document.getElementById('step1').className = "timeline-step completed"; logToTerminal(`Target destination coordinates mapped successfully.`, 'success'); document.getElementById('step2').className = "timeline-step active"; }, 1000);
-            setTimeout(() => { document.getElementById('dot2').innerHTML = "✓"; document.getElementById('step2').className = "timeline-step completed"; if (r) { r.classList.remove('display-none'); r.setAttribute('x2', '85%'); r.setAttribute('y2', '25%'); } logToTerminal(`Secure link token assigned to tracking unit node.`, 'success'); document.getElementById('step3').className = "timeline-step active"; }, 2500);
-            setTimeout(() => { document.getElementById('dot3').innerHTML = "●"; logToTerminal("Handshake finalized. Launching tracking physics simulation loop.", 'success'); runAnimation(); }, 4000);
-        }
-        function runAnimation() {
-            const a = document.getElementById('ambulanceSprite'); const r = document.getElementById('routeLine'); const e = document.getElementById('etaDisplay'); const b = document.getElementById('dispatchBtn');
-            let sL = 85, sT = 25, tL = 33.333, tT = 50, p = 0; startSiren();
-            simulationInterval = setInterval(() => {
-                p += 2;
-                if (p <= 100) {
-                    let cL = sL + (tL - sL) * (p / 100); let cT = sT + (tT - sT) * (p / 100);
-                    if (a) { a.style.left = cL + '%'; a.style.top = cT + '%'; } if (r) { r.setAttribute('x2', cL + '%'); r.setAttribute('y2', cT + '%'); }
-                    let m = Math.ceil(12 * (1 - (p / 100))); if (e) { e.innerText = `ETA: ${m} MINS`; }
+            logToTerminal(`Initializing emergency dispatch route allocation for ${selectedLocation.name}...`, 'warn');
+            let sL = 85, sT = 25, tL = 33.333, tT = 50, p = 0;
+            const r = document.getElementById('routeLine'); const a = document.getElementById('ambulanceSprite');
+            if (a) { a.style.left = sL + '%'; a.style.top = sT + '%'; }
+
+            setTimeout(() => { document.getElementById('dot1').innerHTML = "✓"; document.getElementById('step1').className = "timeline-step completed"; logToTerminal(`Target suggestions verified. Security OTP code generated: ${currentGeneratedOtp}`, 'success'); document.getElementById('step2').className = "timeline-step active"; }, 1000);
+            setTimeout(() => { 
+                document.getElementById('dot2').innerHTML = "✓"; document.getElementById('step2').className = "timeline-step completed"; 
+                if (r) { r.classList.remove('display-none'); r.setAttribute('x2', sL + '%'); r.setAttribute('y2', sT + '%'); }
+                logToTerminal(`Secure link assigned to available cluster node: AMB-${selectedEcosystem.toUpperCase()}-9942`, 'success'); document.getElementById('step3').className = "timeline-step active"; 
+            }, 2500);
+            setTimeout(() => { document.getElementById('dot3').innerHTML = "●"; logToTerminal("Commencing tracking mechanics.", 'success');
+                const watermark = document.getElementById('idleWatermark'); if (watermark) watermark.classList.add('display-none');
+                
+                simulationInterval = setInterval(() => {
+                    p += 2;
+                    if (p <= 100) {
+                    let curLeft = sL + (tL - sL) * (p / 100); 
+                    let curTop = sT + (tT - sT) * (p / 100);
                     
-                    // TELEMETRY SPEED VARIATION CALCULATIONS (Accelerates and decelerates near arrival)
-                    let currentVelocity = p < 20 ? p * 2.5 : (p > 80 ? (100 - p) * 2.8 : 55 + Math.floor(Math.random() * 5));
-                    // Live vehicle velocity speed gauge logic
+                    if (a) { a.style.left = curLeft + '%'; a.style.top = curTop + '%'; } 
+                    if (r) { r.setAttribute('x2', curLeft + '%'); r.setAttribute('y2', curTop + '%'); }
+                    
+                    let mins = Math.ceil(12 * (1 - (p / 100))); 
+                    if (e) { e.innerText = `ETA: ${mins} MINS`; }
+                    
+                    // Dynamic calculation layout curve acceleration profiles
+                    let currentVelocity = p <= 50 ? (20 + (p * 0.8)) : (60 - ((p - 50) * 0.96));
                     document.getElementById('speedDisplayPanel').innerText = `SPEED: ${Math.max(12, Math.round(currentVelocity))} KM/H`;
                     document.getElementById('speedDisplayPanel').style.color = "#fbbf24";
                     
@@ -295,8 +313,13 @@ html_content = """<!DOCTYPE html>
                     }
                 } else {
                     clearInterval(simulationInterval); 
-                    simulationInterval = null; 
+                    simulationInterval = null;
+                    
+                    // Sequential Audio Logic Sequence Part 2: Siren cuts off first
                     stopSiren();
+                    
+                    // Voice announcement reads out vehicle arrival + the dynamic generated security token string
+                    runVoiceAnnouncement("Vehicle arrived. Please share your O T P " + currentGeneratedOtp.split('').join(' ') + " with the driver.");
                     
                     document.getElementById('dot3').innerHTML = "✓"; 
                     document.getElementById('step3').className = "timeline-step completed";
