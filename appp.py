@@ -6,7 +6,7 @@ import socketserver
 
 DB_NAME = "database.db"
 
-# 1. STRUCTURAL PERSISTENT SQLITE3 LOCAL DATABASE SCHEMAS
+# 1. INITIALIZING STRUCTURAL PERSISTENT SQLITE3 LOCAL DATABASE SCHEMAS
 def init_database():
     print("[DATABASE] Connecting to storage engine layer...")
     conn = sqlite3.connect(DB_NAME)
@@ -173,10 +173,7 @@ html_content = """<!DOCTYPE html>
             </div>
         </section>
         <section class="map-wrapper">
-            <div class="map-header">
-                <span style="font-weight: bold; color: #94a3b8;" id="speedDisplayPanel">SPEED: 0 KM/H</span>
-                <span class="eta-badge" id="etaDisplay">ETA: STANDBY</span>
-            </div>
+            <div class="map-header"><span style="font-weight: bold; color: #94a3b8;">🛰️ SIMULATED VIEWPORT</span><span class="eta-badge" id="etaDisplay">ETA: STANDBY</span></div>
             <div class="map-viewport">
                 <div class="map-grid"></div>
                 <svg style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;"><line id="routeLine" x1="33.333%" y1="50%" x2="85%" y2="25%" stroke="#f43f5e" stroke-width="2" stroke-dasharray="5" class="display-none" /></svg>
@@ -192,148 +189,64 @@ html_content = """<!DOCTYPE html>
     </main>
     <script>
         let selectedEcosystem = 'gov'; let simulationInterval = null; let selectedLocation = null;
-        let currentGeneratedOtp = ""; let audioCtx = null; let oscillator = null;
-
         const locationDatabase = {
             "madhapur": { name: "Madhapur Core Area", govCount: 4, pvtCount: 9, distanceKm: 6.8, baseCost: 450, kmRate: 35, hospitals: ["Medicover Hospitals, Madhapur", "Image Hospitals"] },
             "gachibowli": { name: "Gachibowli Financial Hub", govCount: 3, pvtCount: 12, distanceKm: 9.4, baseCost: 550, kmRate: 40, hospitals: ["Continental Hospitals", "AIG Hospitals"] },
             "jubilee hills": { name: "Jubilee Hills Checkpost", govCount: 6, pvtCount: 7, distanceKm: 3.2, baseCost: 350, kmRate: 30, hospitals: ["Apollo Hospitals", "Indo-American Hospital"] },
             "kondapur": { name: "Kondapur Botanical Zone", govCount: 2, pvtCount: 8, distanceKm: 8.1, baseCost: 500, kmRate: 35, hospitals: ["KIMS Hospital", "Ar时代 Healthcare"] }
         };
-
         window.addEventListener('DOMContentLoaded', () => {
             const s = document.getElementById('terminalStream'); if (!s) return; const t = new Date().toLocaleTimeString();
-            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Core database layout restored successfully.</span></div>`;
-            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Telemetry sound triggers synchronized.</span></div>`;
+            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Core database pipeline synchronized.</span></div>`;
+            s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:#10b981;">[SYSTEM] Hybrid regional tariff arrays active.</span></div>`;
         });
-
-        function runVoiceAnnouncement(txt) {
-            if ('speechSynthesis' in window) {
-                const u = new SpeechSynthesisUtterance(txt);
-                u.rate = 1.0; u.pitch = 1.0; u.lang = 'en-IN';
-                window.speechSynthesis.speak(u);
-            }
-        }
-
-        function startSiren() {
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                oscillator = audioCtx.createOscillator();
-                let gainNode = audioCtx.createGain();
-                oscillator.type = 'sawtooth';
-                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                oscillator.start();
-                
-                // Continuous frequency sweep emulation loop
-                let toggle = true;
-                simulationIntervalAudio = setInterval(() => {
-                    if (oscillator) {
-                        oscillator.frequency.setValueAtTime(toggle ? 600 : 450, audioCtx.currentTime);
-                        toggle = !toggle;
-                    }
-                }, 400);
-            } catch (e) { console.log("Audio parameters muted"); }
-        }
-
-        function stopSiren() {
-            if (oscillator) {
-                try {
-                    clearInterval(simulationIntervalAudio);
-                    oscillator.stop();
-                    audioCtx.close();
-                } catch(e){}
-                oscillator = null;
-            }
-        }
-
         function handleLocationTyping(v) {
             const d = document.getElementById('suggestionsDropdown'); d.innerHTML = ''; if (!v || simulationInterval) { d.style.display = 'none'; return; }
             const k = v.toLowerCase().trim(); const m = Object.keys(locationDatabase).filter(x => x.includes(k));
             if (m.length > 0) { d.style.display = 'block'; m.forEach(x => { const i = document.createElement('div'); i.className = 'suggestion-item'; i.innerText = locationDatabase[x].name; i.onclick = () => selectLocation(x); d.appendChild(i); }); } else { d.style.display = 'none'; }
         }
-
         function selectLocation(x) {
             selectedLocation = locationDatabase[x]; document.getElementById('locationInput').value = selectedLocation.name; document.getElementById('suggestionsDropdown').style.display = 'none';
-            document.getElementById('govRadarCount').innerText = selectedLocation.govCount + " Units"; document.getElementById('pvtRadarCount').innerText = selectedLocation.pvtCount + " Units";
+            document.getElementById('govRadarCount').innerText = selectedLocation.govCount + " Units Active"; document.getElementById('pvtRadarCount').innerText = selectedLocation.pvtCount + " Units Idling";
             document.getElementById('patientLabelText').innerText = "Location: " + selectedLocation.name; document.getElementById('patientUiNode').style.display = 'block'; document.getElementById('ambulanceSprite').style.display = 'block';
             const b = document.getElementById('dispatchBtn'); b.disabled = false; b.innerText = "⚡ Initialize Routing Instance"; calculateInvoice();
-            logToTerminal(`Location context locked: ${selectedLocation.name}. Suggested Facilities: ${selectedLocation.hospitals.join(' | ')}`);
+            logToTerminal(`Location locked: ${selectedLocation.name}. Nearby Facilities: ${selectedLocation.hospitals.join(' | ')}`);
         }
-
         function calculateInvoice() {
             if (!selectedLocation) return; const p = document.getElementById('priceInvoice');
             if (selectedEcosystem === 'pvt') { p.style.display = 'block'; const dC = Math.round(selectedLocation.distanceKm * selectedLocation.kmRate); const gT = selectedLocation.baseCost + dC; document.getElementById('invoiceBase').innerText = `₹${selectedLocation.baseCost}`; document.getElementById('invoiceKmText').innerText = selectedLocation.distanceKm; document.getElementById('invoiceDist').innerText = `₹${dC}`; document.getElementById('invoiceTotalCost').innerText = `₹${gT}`; } else { p.style.display = 'none'; }
         }
-
         function logToTerminal(m, y = 'info') { const s = document.getElementById('terminalStream'); if (!s) return; const t = new Date().toLocaleTimeString(); let c = '#cbd5e1'; if (y === 'warn') c = '#fbbf24'; if (y === 'success') c = '#22d3ee'; s.innerHTML += `<div><span class="log-time">[${t}]</span> <span style="color:${c}">${m}</span></div>`; s.scrollTop = s.scrollHeight; }
-
         function selectTier(t) {
             if (simulationInterval) return; selectedEcosystem = t; const bG = document.getElementById('btnGov'); const bP = document.getElementById('btnPvt'); const pS = document.getElementById('pvtSub'); const aL = document.getElementById('ambLabel'); const aI = document.getElementById('ambIcon'); const aB = document.getElementById('ambIconBg'); const rL = document.getElementById('routeLine');
-            if (t === 'gov') { bG.className = "tab-btn active-gov"; bP.className = "tab-btn"; pS.style.color = "#64748b"; if (aL) { aL.innerText = "Gov 108"; aL.className = "node-label label-rose"; } if (aI) aI.innerText = "🚒"; if (aB) aB.className = "amb-icon-bg icon-rose"; if (rL) rL.setAttribute('stroke', '#f43f5e'); } else { bG.className = "tab-btn"; bP.className = "tab-btn active-pvt"; pS.style.color = "#fbbf24"; if (aL) { aL.innerText = "Pvt Med-Cab"; aL.className = "node-label label-amber"; } if (aI) aI.innerText = "🚑"; if (aB) aB.className = "amb-icon-bg icon-amber"; if (rL) rL.setAttribute('stroke', '#f59e0b'); } calculateInvoice(); logToTerminal(`Routing tier switched to ${t === 'gov' ? 'Government 108' : 'Private Aggregator'}.`);
+            if (t === 'gov') { bG.className = "tab-btn active-gov"; bP.className = "tab-btn"; pS.style.color = "#64748b"; if (aL) { aL.innerText = "Gov 108"; aL.className = "node-label label-rose"; } if (aI) aI.innerText = "🚒"; if (aB) aB.className = "amb-icon-bg icon-rose"; if (rL) rL.setAttribute('stroke', '#f43f5e'); } else { bG.className = "tab-btn"; bP.className = "tab-btn active-pvt"; pS.style.color = "#fbbf24"; if (aL) { aL.innerText = "Pvt Med-Cab"; aL.className = "node-label label-amber"; } if (aI) aI.innerText = "🚑"; if (aB) aB.className = "amb-icon-bg icon-amber"; if (rL) rL.setAttribute('stroke', '#f59e0b'); } calculateInvoice(); logToTerminal(`Routing tier switched to ${t === 'gov' ? 'Government 108' : 'Private Aggregator Network'}.`);
         }
-
         function startDispatch() {
             if (!selectedLocation || simulationInterval) return; const w = document.getElementById('idleWatermark'); if (w) w.classList.add('display-none');
             const a = document.getElementById('ambulanceSprite'); const r = document.getElementById('routeLine'); const b = document.getElementById('dispatchBtn'); const e = document.getElementById('etaDisplay');
             if (a) { a.style.left = '85%'; a.style.top = '25%'; } if (r) r.classList.add('display-none'); if (e) { e.innerText = "ETA: SPINNING UP"; e.style.color = "#fbbf24"; } if (b) { b.disabled = true; b.innerText = "🚨 DISPATCH ACTIVE"; }
             document.getElementById('step2').className = "timeline-step"; document.getElementById('dot2').innerHTML = "2"; document.getElementById('step3').className = "timeline-step"; document.getElementById('dot3').innerHTML = "3";
-            
-            // Sequential Audio Logic Sequence Part 1: Triggers voice first
-            runVoiceAnnouncement("Booking confirmed");
-            
             logToTerminal(`Initializing emergency dispatch route allocation for ${selectedLocation.name}...`, 'warn');
-            setTimeout(() => { document.getElementById('dot1').innerHTML = "✓"; document.getElementById('step1').className = "timeline-step completed"; logToTerminal(`Target suggestions verified: ${selectedLocation.hospitals.join(' & ')}`, 'success'); document.getElementById('step2').className = "timeline-step active"; }, 1000);
-            setTimeout(() => { 
-                document.getElementById('dot2').innerHTML = "✓"; document.getElementById('step2').className = "timeline-step completed"; if (r) { r.classList.remove('display-none'); r.setAttribute('x2', '85%'); r.setAttribute('y2', '25%'); } 
-                
-                // Triggers visual security code generation variables and starts ambulance audible siren loops
-                currentGeneratedOtp = Math.floor(1000 + Math.random() * 9000).toString();
-                startSiren();
-                
-                logToTerminal(`Secure link assigned: AMB-${selectedEcosystem.toUpperCase()}-9942 | Generated OTP: ${currentGeneratedOtp}`, 'success'); 
-                document.getElementById('step3').className = "timeline-step active"; 
-            }, 2500);
-            setTimeout(() => { 
-                document.getElementById('dot3').innerHTML = "●"; 
-                logToTerminal("Commencing tracking mechanics.", 'success'); 
-                
-                let sL = 85, sT = 25, tL = 33.333, tT = 50, p = 0;
-                simulationInterval = setInterval(() => {
-                    p += 2;
-                    if (p <= 100) {
-                        let cL = sL + (tL - sL) * (p / 100); let cT = sT + (tT - sT) * (p / 100);
-                        if (a) { a.style.left = cL + '%'; a.style.top = cT + '%'; } if (r) { r.setAttribute('x2', cL + '%'); r.setAttribute('y2', cT + '%'); }
-                        let mins = Math.ceil(12 * (1 - (p / 100))); if (e) { e.innerText = `ETA: ${mins} MINS`; }
-                        let currentVelocity = p <= 50 ? (20 + (p * 0.8)) : (60 - ((p - 50) * 0.96));
-                        document.getElementById('speedDisplayPanel').innerText = `SPEED: ${Math.max(12, Math.round(currentVelocity))} KM/H`;
-                        document.getElementById('speedDisplayPanel').style.color = "#fbbf24";
-                        
-                        if (p % 20 === 0) { 
-                            logToTerminal(`Telemetry Sync: Radius delta remaining -> ${(selectedLocation.distanceKm * (1 - (p / 100))).toFixed(2)} KM`); 
-                        }
-                    } else {
-                        clearInterval(simulationInterval); 
-                        simulationInterval = null; 
-                        
-                        stopSiren();
-                        runVoiceAnnouncement("Vehicle arrived. Please share your O T P " + currentGeneratedOtp.split('').join(' ') + " with the driver.");
-                        
-                        document.getElementById('dot3').innerHTML = "✓"; 
-                        document.getElementById('step3').className = "timeline-step completed";
-                        
-                        if (e) { e.innerText = "ARRIVED"; e.style.color = "#10b981"; } 
-                        if (r) r.classList.add('display-none');
-                        
-                        document.getElementById('speedDisplayPanel').innerText = "SPEED: 0 KM/H"; 
-                        document.getElementById('speedDisplayPanel').style.color = "#cbd5e1";
-                        
-                        logToTerminal("Vehicle arrived safely at target scene coordinates boundary.", 'success');
-                        if (b) { b.disabled = false; b.innerText = "⚡ Initialize Routing Instance"; }
-                    }
-                }, 150);
-            }, 4000);
+            setTimeout(() => { document.getElementById('dot1').innerHTML = "✓"; document.getElementById('step1').className = "timeline-step completed"; logToTerminal(`Target suggestions verified from local cluster: ${selectedLocation.hospitals.join(' & ')}`, 'success'); document.getElementById('step2').className = "timeline-step active"; }, 1000);
+            setTimeout(() => { document.getElementById('dot2').innerHTML = "✓"; document.getElementById('step2').className = "timeline-step completed"; if (r) { r.classList.remove('display-none'); r.setAttribute('x2', '85%'); r.setAttribute('y2', '25%'); } logToTerminal(`Secure link assigned to available cluster node: AMB-${selectedEcosystem.toUpperCase()}-9942`, 'success'); document.getElementById('step3').className = "timeline-step active"; }, 2500);
+            setTimeout(() => { document.getElementById('dot3').innerHTML = "●"; logToTerminal("Commencing geographic tracking mechanics loop.", 'success'); runAnimation(); }, 4000);
+        }
+        function runAnimation() {
+            const a = document.getElementById('ambulanceSprite'); const r = document.getElementById('routeLine'); const e = document.getElementById('etaDisplay'); const b = document.getElementById('dispatchBtn');
+            let sL = 85, sT = 25, tL = 33.333, tT = 50, p = 0;
+            simulationInterval = setInterval(() => {
+                p += 2;
+                if (p <= 100) {
+                    let cL = sL + (tL - sL) * (p / 100); let cT = sT + (tT - sT) * (p / 100);
+                    if (a) { a.style.left = cL + '%'; a.style.top = cT + '%'; } if (r) { r.setAttribute('x2', cL + '%'); r.setAttribute('y2', cT + '%'); }
+                    let m = Math.ceil(12 * (1 - (p / 100))); if (e) { e.innerText = `ETA: ${m} MINS`; }
+                    if (p % 20 === 0) { logToTerminal(`Telemetry Sync: Radius delta remaining -> ${(selectedLocation.distanceKm * (1 - (p / 100))).toFixed(2)} KM`); }
+                } else {
+                    clearInterval(simulationInterval); simulationInterval = null; document.getElementById('dot3').innerHTML = "✓"; document.getElementById('step3').className = "timeline-step completed";
+                    if (e) { e.innerText = "ARRIVED"; e.style.color = "#10b981"; } if (r) r.classList.add('display-none'); logToTerminal("Vehicle arrived safely at target scene coordinates.", 'success');
+                    if (b) { b.disabled = false; b.innerText = "⚡ Initialize Routing Instance"; }
+                }
+            }, 150);
         }
     </script>
 </body>
@@ -347,14 +260,14 @@ def run():
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_content)
     print("[SYSTEM] Native client interface cleanly generated inside 'index.html'.")
-    
     handler = http.server.SimpleHTTPRequestHandler
-    port = int(os.environ.get("PORT", 8000))
-    with socketserver.TCPServer(("0.0.0.0", port), handler) as httpd:
+    with socketserver.TCPServer(("", 8000), handler) as httpd:
         print("\n" + "="*65)
-        print(f"🚀 LOCAL MICROSERVER STACK STABILIZED ON PORT {port}")
+        print("🚀 LOCAL MICROSERVER STACK STABILIZED ON PORT 8000")
         print("👉 Laptop Preview Portal Link: http://localhost:8000")
+        print("👉 Tunneling Reference: Use local port 8000 for Pinggy or ngrok hooks.")
         print("="*65 + "\n")
+        print("[SYSTEM] Operational socket monitoring layer listening for incoming client tunnels...")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
